@@ -1,0 +1,94 @@
+#' Assign clones to cells
+#'
+#' Groups cells with the same receptor into clones. A cell's receptor is the set
+#' of all its contigs, each identified by its chain and CDR3 sequence (plus its
+#' gene calls when \code{match_genes = TRUE}); contig order within a cell does
+#' not matter, and contigs with identical keys count once. Cells must match on
+#' every contig to share a clone, so a cell with two different TRA chains is not
+#' in the same clone as a cell with only one of them.
+#'
+#' Clones are called separately within each combination of \code{group_cols}
+#' (e.g. per donor), so identical receptors in different groups get different
+#' clone ids. A cell is identified by \code{group_cols} plus its barcode, so
+#' barcodes may repeat across groups. Contigs with a missing or empty CDR3 are
+#' ignored; cells with none left get \code{NA}.
+#'
+#' @param contigs Data frame with one row per contig, such as the
+#'   \code{contigs} slot of a \code{\linkS4class{VDJ}} object.
+#' @param cdr3 Match CDR3 by amino acid (\code{"aa"}) or nucleotide
+#'   (\code{"nt"}) sequence.
+#' @param match_genes If \code{TRUE}, contigs must also match on every column in
+#'   \code{gene_cols}.
+#' @param group_cols Columns to group cells by before calling clones, e.g.
+#'   \code{c("donor")}. Each cell must have a single value per column.
+#' @param clone_col Name of the clone id column to add.
+#' @param prefix Prefix for clone ids, e.g. \code{"clone_"} gives
+#'   \code{"clone_1"}.
+#' @param count_col Name of the column to add with the number of cells in the
+#'   clone.
+#' @param cell_id_col,chain_col Cell barcode and chain columns.
+#' @param junction_aa_col,junction_col Amino acid and nucleotide CDR3 columns.
+#' @param gene_cols Gene call columns matched when \code{match_genes = TRUE}.
+#'   Drop \code{"c_call"} to keep class-switched BCRs in the same clone.
+#'
+#' @return \code{contigs} with \code{clone_col} and \code{count_col} added; every
+#'   contig of a cell gets that cell's clone. Existing columns with those names
+#'   are replaced.
+#'
+#' @examples
+#' contigs <- data.frame(
+#'   barcode = c("A", "A", "B", "B", "C"),
+#'   donor = c("d1", "d1", "d1", "d1", "d2"),
+#'   chain = c("TRA", "TRB", "TRB", "TRA", "TRB"),
+#'   junction_aa = c("CAVF", "CASSF", "CASSF", "CAVF", "CASSF"),
+#'   junction = c("tgt1", "tgt2", "tgt2", "tgt1", "tgt2"),
+#'   v_call = "V", d_call = "", j_call = "J", c_call = "C")
+#' callClones(contigs, cdr3 = "aa", group_cols = "donor")
+#'
+#' @importFrom rlang :=
+#' @export
+callClones <- function(contigs,
+                       cdr3 = c('aa', 'nt'),
+                       match_genes = FALSE,
+                       group_cols = NULL,
+                       clone_col = 'clone_id',
+                       prefix = 'clone_',
+                       count_col = paste0(clone_col, '_count'),
+                       cell_id_col = 'barcode',
+                       chain_col = 'chain',
+                       junction_aa_col = 'junction_aa',
+                       junction_col = 'junction',
+                       gene_cols = c('v_call', 'd_call', 'j_call', 'c_call')){
+
+    cdr3 <- match.arg(cdr3)
+    cdr3_col <- if(cdr3 == 'aa') junction_aa_col else junction_col
+    key_cols <- c(chain_col, cdr3_col, if(match_genes) gene_cols)
+    cell_by <- c(group_cols, cell_id_col)
+
+    missing_cols <- setdiff(c(key_cols, cell_by), colnames(contigs))
+    if(length(missing_cols) > 0){
+        stop('Columns not found in contigs: ', paste(missing_cols, collapse = ', '))
+    }
+    contigs <- contigs[, setdiff(colnames(contigs), c(clone_col, count_col)), drop = FALSE]
+
+    # One receptor key per cell: its unique contig keys sorted (radix = locale independent) and joined
+    contig_key <- do.call(paste, c(unname(as.list(contigs[key_cols])), sep = ':'))
+    cdr3_seq <- contigs[[cdr3_col]]
+    valid <- !is.na(cdr3_seq) & cdr3_seq != ''
+    cells <- contigs[valid, cell_by, drop = FALSE]
+    cells$.contig_key <- contig_key[valid]
+
+    cells <- cells %>%
+        dplyr::group_by(dplyr::across(dplyr::all_of(cell_by))) %>%
+        dplyr::summarise(.receptor = paste(sort(unique(.data$.contig_key), method = 'radix'), collapse = '|'),
+                         .groups = 'drop')
+
+    cells <- cells %>%
+        dplyr::group_by(dplyr::across(dplyr::all_of(c(group_cols, '.receptor')))) %>%
+        dplyr::mutate(!!clone_col := paste0(prefix, dplyr::cur_group_id()),
+                      !!count_col := dplyr::n()) %>%
+        dplyr::ungroup() %>%
+        dplyr::select(-'.receptor')
+
+    return(dplyr::left_join(contigs, cells, by = cell_by))
+}
