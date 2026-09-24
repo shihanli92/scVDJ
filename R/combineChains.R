@@ -1,12 +1,15 @@
 setGeneric("combineChains", function(object, handle_multiple = 'keep_all', ...) standardGeneric("combineChains"))
 
 # Collapses contigs of the given chains to one row per barcode. Chains, gene calls, junctions,
-# umis and contig ids are pipe-joined in decreasing umi order; best_contig is the contig with
-# the highest umi count.
+# umis and contig ids are pipe-joined in decreasing umi order, with ties broken by reads when a
+# reads column is present (otherwise by input order); best_contig is the first contig.
 collapse_chains <- function(contigs, chains, other_cols) {
+    if(!'reads' %in% colnames(contigs)){
+        contigs$reads <- 0
+    }
     contigs %>%
         dplyr::filter(.data$chain %in% chains) %>%
-        dplyr::arrange(dplyr::desc(.data$umis)) %>%
+        dplyr::arrange(dplyr::desc(.data$umis), dplyr::desc(.data$reads)) %>%
         dplyr::group_by(.data$barcode) %>%
         dplyr::summarise(best_contig = dplyr::first(.data$contig_id),
                          dplyr::across(dplyr::all_of(pipe_cols), ~ paste0(.x, collapse = "|")),
@@ -47,6 +50,7 @@ setMethod("combineChains", "VDJ", function(object,
                                            junction_col = 'junction',
                                            junction_aa_col = 'junction_aa',
                                            read_count_col = 'umis',
+                                           tie_break_col = 'reads',
                                            other_cols = c()
                                            ){
 
@@ -68,6 +72,10 @@ setMethod("combineChains", "VDJ", function(object,
     missing_cols <- setdiff(c(col_map, other_cols), colnames(object@contigs))
     if(length(missing_cols) > 0){
         stop('Columns not found in contigs: ', paste(missing_cols, collapse = ', '))
+    }
+    # Optional column used to break umi ties, skipped if absent
+    if(!is.null(tie_break_col) && tie_break_col %in% colnames(object@contigs)){
+        col_map <- c(col_map, reads = tie_break_col)
     }
     contigs <- object@contigs %>%
         dplyr::select(dplyr::all_of(col_map), dplyr::all_of(other_cols))
