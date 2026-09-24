@@ -1,10 +1,27 @@
+#' @include vdj.R
+NULL
+
+#' Read 10x VDJ contigs into a VDJ object
+#'
+#' Reads \code{filtered_contig_annotations.csv} and, when present in the same
+#' directory, merges in \code{airr_rearrangement.tsv} by contig id. 10x column
+#' names are renamed to AIRR names (\code{v_gene} to \code{v_call},
+#' \code{cdr3_nt} to \code{junction}, \code{cdr3} to \code{junction_aa}, etc.).
+#' Only productive contigs are kept, and contigs with chain \code{"Multi"} are
+#' dropped. A \code{contig_count} column gives the number of contigs sharing
+#' each nucleotide junction.
+#'
+#' @param object A \code{\linkS4class{VDJ}} object.
+#' @param path Path to a 10x \code{vdj_t}/\code{vdj_b} output directory, or to a
+#'   \code{filtered_contig_annotations.csv} file.
+#'
+#' @return The \code{VDJ} object with its \code{contigs} slot filled in.
+#'
+#' @importFrom utils read.csv
+#' @export
 setGeneric("readVDJ_10X", function(object, path) standardGeneric("readVDJ_10X"))
 
-#' Parses VDJ alignments and adds to contigs slot
-#'
-#' @param object: VDJ object which contains a path string indicating location of 10x VDJ output files.
-#' @importFrom utils read.csv
-#' @return VDJ object
+#' @rdname readVDJ_10X
 setMethod("readVDJ_10X", "VDJ",
 
           function(object, path) {
@@ -68,7 +85,7 @@ setMethod("readVDJ_10X", "VDJ",
               object@contigs <- to_return
 
               object@contigs <- object@contigs %>%
-                  dplyr::group_by(junction) %>%
+                  dplyr::group_by(.data$junction) %>%
                   dplyr::mutate(contig_count=dplyr::n()) %>%
                   dplyr::ungroup()
 

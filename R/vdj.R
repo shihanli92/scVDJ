@@ -1,6 +1,18 @@
-# VDJ Object contains two dataframes:
-# Pne which contains detailed information of all contigs for cells separately,
-# while the metadata contains paired TCRS where each row is a individual cell
+#' VDJ class
+#'
+#' Holds single cell immune receptor data at two levels: every contig, and
+#' chains paired per cell.
+#'
+#' @slot celltype Receptor type: \code{"abTCR"}, \code{"gdTCR"} or \code{"BCR"}.
+#' @slot contigs One row per contig, as parsed by \code{\link{readVDJ_10X}},
+#'   with AIRR column names. \code{\link{combineChains}} adds a logical
+#'   \code{keep} column.
+#' @slot metadata One row per cell (or per chain pairing in the expand modes),
+#'   built by \code{\link{combineChains}}.
+#' @slot species Species name, e.g. \code{"Homo_sapiens"}.
+#' @slot clone_data List reserved for clonotype results.
+#'
+#' @exportClass VDJ
 setClass("VDJ", slots=list(celltype='character',
                            contigs="data.frame",
                            metadata="data.frame",
@@ -9,13 +21,20 @@ setClass("VDJ", slots=list(celltype='character',
 
 
 
-#' Builds new VDJ object based on path location
+#' Build a VDJ object from a 10x output directory
 #'
-#' @param path string indicating location of datafiles to be parsed
-#' @param celltype String indicating the type of immune receptors can be abTCR, gdTCR or BCR
-#' @param keep_high_umi Boolean indicating whether to show only most abundant gene for each cell
+#' Reads the contigs with \code{\link{readVDJ_10X}} and pairs chains per cell
+#' with \code{\link{combineChains}} using \code{handle_multiple = "keep_all"}.
 #'
-#' @return Returns a VDJ object
+#' @param path Path to a 10x \code{vdj_t}/\code{vdj_b} output directory, or to a
+#'   \code{filtered_contig_annotations.csv} file.
+#' @param celltype Receptor type: \code{"abTCR"}, \code{"gdTCR"} or \code{"BCR"}.
+#' @param species Species name stored on the object.
+#' @param input_origin Source of the data. Only \code{"10x"} is parsed; any
+#'   other value returns an empty object.
+#'
+#' @return A \code{\linkS4class{VDJ}} object with \code{contigs} and
+#'   \code{metadata} filled in.
 #'
 #' @importFrom magrittr %>%
 #' @importFrom rlang .data

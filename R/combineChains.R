@@ -1,8 +1,69 @@
+#' @include vdj.R
+NULL
+
+#' Pair chains per cell
+#'
+#' Collapses the contigs of a \code{\linkS4class{VDJ}} object into one row per
+#' cell, with VJ chains (TRA, TRG, IGK/IGL) and VDJ chains (TRB, TRD, IGH) side
+#' by side. Cells with only one chain type are kept, with \code{NA} for the
+#' missing side.
+#'
+#' Within each side, contigs are ordered by decreasing UMIs, with ties broken
+#' by \code{tie_break_col}. Metadata columns carry the suffix \code{_vj} or
+#' \code{_vdj}. \code{chain}, \code{v_call}, \code{j_call}, \code{c_call},
+#' \code{junction}, \code{junction_aa}, \code{umis} and \code{contig_id} hold
+#' every contig in that order, joined with \code{"|"}. \code{best_contig} is the
+#' top contig, and \code{n_<chain>} columns (e.g. \code{n_TRA}) count contigs
+#' per chain.
+#'
+#' @param object A \code{\linkS4class{VDJ}} object with a filled \code{contigs} slot.
+#' @param handle_multiple How to handle cells with more than one contig of a
+#'   chain type:
+#'   \describe{
+#'     \item{\code{"keep_all"}}{One row per cell with every contig pipe-joined.}
+#'     \item{\code{"keep_high_umi"}}{One row per cell keeping only the top
+#'       contig on each side; UMI columns become numeric.}
+#'     \item{\code{"expand_clones"}}{One row per VJ x VDJ contig pairing, with
+#'       \code{sum_umis} (combined UMIs) and \code{umi_rank} (rank within the
+#'       cell, 1 = highest). Row names are \code{<barcode>_<umi_rank>}.}
+#'     \item{\code{"expand_clones_keep_one_clonal"}}{As \code{"expand_clones"},
+#'       plus \code{clone_count} (cells sharing the pairing's nucleotide
+#'       junctions) and \code{keep}, marking per cell the pairing with the
+#'       highest \code{clone_count} (ties by \code{umi_rank}). Only contigs of
+#'       kept pairings have \code{keep = TRUE} in the \code{contigs} slot.}
+#'   }
+#' @param ... Unused.
+#' @param contig_id_col,cell_id_col,chain_col Contig id, cell barcode and chain
+#'   columns in \code{contigs}.
+#' @param variable_gene_col,joining_gene_col,constant_gene_col V, J and C gene
+#'   call columns.
+#' @param junction_col,junction_aa_col Nucleotide and amino acid junction
+#'   (CDR3) columns.
+#' @param read_count_col UMI count column used to order contigs.
+#' @param tie_break_col Column used to break UMI ties, by decreasing value.
+#'   Skipped if \code{NULL} or not in \code{contigs}, in which case ties keep
+#'   input order.
+#' @param other_cols Extra \code{contigs} columns to carry into
+#'   \code{metadata}, taking the top contig's value on each side.
+#'
+#' @return The \code{VDJ} object with \code{metadata} filled in and a logical
+#'   \code{keep} column added to \code{contigs}.
+#'
+#' @export
 setGeneric("combineChains", function(object, handle_multiple = 'keep_all', ...) standardGeneric("combineChains"))
 
-# Collapses contigs of the given chains to one row per barcode. Chains, gene calls, junctions,
-# umis and contig ids are pipe-joined in decreasing umi order, with ties broken by reads when a
-# reads column is present (otherwise by input order); best_contig is the first contig.
+#' Collapse contigs of the given chains to one row per barcode
+#'
+#' Chains, gene calls, junctions, umis and contig ids are pipe-joined in
+#' decreasing umi order, with ties broken by \code{reads} when that column is
+#' present (otherwise by input order).
+#'
+#' @param contigs Contigs with the AIRR column names set by \code{combineChains}.
+#' @param chains Chain names to keep, e.g. \code{c("IGK", "IGL")}.
+#' @param other_cols Extra columns to carry through, taking the top contig's value.
+#' @return A data frame with one row per barcode: \code{barcode},
+#'   \code{best_contig} (top contig id), the \code{pipe_cols} and \code{other_cols}.
+#' @noRd
 collapse_chains <- function(contigs, chains, other_cols) {
     if(!'reads' %in% colnames(contigs)){
         contigs$reads <- 0
@@ -20,7 +81,14 @@ collapse_chains <- function(contigs, chains, other_cols) {
 # Columns pipe-joined per chain type by collapse_chains
 pipe_cols <- c('chain', 'v_call', 'j_call', 'c_call', 'junction', 'junction_aa', 'umis', 'contig_id')
 
-# Adds n_<chain> columns counting contigs of each chain type per cell (e.g. n_TRA, n_TRB)
+#' Count contigs of each chain type per cell
+#'
+#' @param object A \code{VDJ} object whose metadata has pipe-joined
+#'   \code{chain_vj} and \code{chain_vdj} columns.
+#' @param vj,vdj Chain names on each side, e.g. \code{"TRA"} and \code{"TRB"}.
+#' @return The object with an integer \code{n_<chain>} metadata column per chain
+#'   (e.g. \code{n_TRA}, \code{n_TRB}); 0 when the cell has none.
+#' @noRd
 count_chains <- function(object, vj, vdj) {
     count_chain <- function(collapsed, chain) {
         vapply(strsplit(collapsed, '|', fixed = TRUE),
@@ -35,10 +103,7 @@ count_chains <- function(object, vj, vdj) {
     return(object)
 }
 
-#' Merge contigs by barcode
-#'
-#' @param object: VDJ object with non-empyt contig dataframe. Requires column for barcodes
-#' @return VDJ object
+#' @rdname combineChains
 setMethod("combineChains", "VDJ", function(object,
                                            handle_multiple = 'keep_all', ...,
                                            contig_id_col = 'contig_id',

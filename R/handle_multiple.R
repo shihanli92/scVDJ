@@ -1,3 +1,12 @@
+#' Keep only the top contig on each side
+#'
+#' Takes the first entry of every pipe-joined metadata column, which is the
+#' highest-umi contig, and converts the result to its natural type (e.g. umis
+#' become numeric). Row names are kept.
+#'
+#' @param object A \code{VDJ} object with metadata from \code{combineChains}.
+#' @return The object with one value per metadata cell.
+#' @noRd
 keep_high_umi <- function(object) {
 
     # Keep first (highest umi) entry of pipe-joined columns; df[] preserves row names
@@ -11,8 +20,14 @@ keep_high_umi <- function(object) {
 }
 
 
-# Splits the pipe-joined columns of one chain side into long format: one row per contig,
-# keyed by barcode. A cell missing that chain type gets a single NA row.
+#' Split one chain side into one row per contig
+#'
+#' @param metadata Metadata from \code{combineChains}, one row per cell.
+#' @param suffix \code{"_vj"} or \code{"_vdj"}.
+#' @return A long data frame keyed by \code{barcode} with one row per contig on
+#'   that side and the \code{pipe_cols} (suffixed) as columns; umis are numeric.
+#'   A cell missing that chain type gets a single \code{NA} row.
+#' @noRd
 split_side <- function(metadata, suffix) {
     cols <- paste0(pipe_cols, suffix)
     # str_split keeps empty fields (e.g. missing c_call) so all columns stay the same length
@@ -26,9 +41,14 @@ split_side <- function(metadata, suffix) {
 }
 
 
-# Expands each metadata row (a single cell) into every pairing of its vj and vdj contigs.
-# Pipe-joined columns become one value per row, umis are numeric and sum_umis is the
-# combined umi count of the pairing. A cell missing one chain type gets NA for that side.
+#' Expand cells into every VJ x VDJ contig pairing
+#'
+#' @param metadata Metadata from \code{combineChains}, one row per cell.
+#' @return A data frame with one row per pairing: the cell-level columns
+#'   repeated, one value per pipe-joined column, numeric umis and
+#'   \code{sum_umis}, the pairing's combined umi count. A cell missing one chain
+#'   type gets \code{NA} for that side.
+#' @noRd
 expand_cell_clones <- function(metadata) {
 
     vj <- split_side(metadata, '_vj')

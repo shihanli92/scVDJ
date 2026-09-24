@@ -6,7 +6,7 @@ Author: Who wrote it
 Maintainer: The package maintainer <yourself@somewhere.net>
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+License: MIT + file LICENSE
 Imports:
     dplyr,
     magrittr,
@@ -17,4 +17,10 @@ Imports:
     utils
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
+Collate: 
+    'vdj.R'
+    'combineChains.R'
+    'handle_multiple.R'
+    'read_10x.R'
+    'testing.R'
