@@ -20,8 +20,7 @@ callClones(
 )
 }
 \arguments{
-\item{contigs}{Data frame with one row per contig, such as the
-\code{contigs} slot of a \code{\linkS4class{VDJ}} object.}
+\item{contigs}{Contig-level or cell-level data frame (see Details).}
 
 \item{cdr3}{Match CDR3 by amino acid (\code{"aa"}) or nucleotide
 (\code{"nt"}) sequence.}
@@ -40,24 +39,29 @@ callClones(
 \item{count_col}{Name of the column to add with the number of cells in the
 clone.}
 
-\item{cell_id_col, chain_col}{Cell barcode and chain columns.}
+\item{cell_id_col, chain_col}{Cell barcode and chain columns. For cell-level
+input these are base names, e.g. \code{"chain"} for \code{chain_vj} and
+\code{chain_vdj}; the same applies to the CDR3 and gene columns.}
 
 \item{junction_aa_col, junction_col}{Amino acid and nucleotide CDR3 columns.}
 
 \item{gene_cols}{Gene call columns matched when \code{match_genes = TRUE}.
-Drop \code{"c_call"} to keep class-switched BCRs in the same clone.}
+Drop \code{"c_call"} to keep class-switched BCRs in the same clone.
+\code{combineChains} metadata has no D calls, so use
+\code{c("v_call", "j_call", "c_call")} for cell-level input.}
 }
 \value{
-\code{contigs} with \code{clone_col} and \code{count_col} added; every
-  contig of a cell gets that cell's clone. Existing columns with those names
-  are replaced.
+The input with \code{clone_col} and \code{count_col} added, rows
+  and row names unchanged; for contig-level input every contig of a cell gets
+  that cell's clone. Existing columns with those names are replaced.
 }
 \description{
 Groups cells with the same receptor into clones. A cell's receptor is the set
 of all its contigs, each identified by its chain and CDR3 sequence (plus its
 gene calls when \code{match_genes = TRUE}); contig order within a cell does
-not matter. Cells must match on every contig to share a clone, so a cell with
-two TRA chains is not in the same clone as a cell with only one of them.
+not matter, and contigs with identical keys count once. Cells must match on
+every contig to share a clone, so a cell with two different TRA chains is not
+in the same clone as a cell with only one of them.
 }
 \details{
 Clones are called separately within each combination of \code{group_cols}
@@ -65,6 +69,14 @@ Clones are called separately within each combination of \code{group_cols}
 clone ids. A cell is identified by \code{group_cols} plus its barcode, so
 barcodes may repeat across groups. Contigs with a missing or empty CDR3 are
 ignored; cells with none left get \code{NA}.
+
+Input can be contig-level or cell-level. Contig-level data has one row per
+contig, such as the \code{contigs} slot of a \code{\linkS4class{VDJ}}
+object. Cell-level data has one row per cell with \code{_vj} and \code{_vdj}
+columns, such as \code{combineChains} metadata or Seurat \code{meta.data}
+built from it; multiple chains joined with \code{"|"} are split, each row is
+one cell, and \code{cell_id_col} is not used. Cell-level data is detected by
+\code{chain_vj} and \code{chain_vdj} columns without a \code{chain} column.
 }
 \examples{
 contigs <- data.frame(
@@ -75,5 +87,13 @@ contigs <- data.frame(
   junction = c("tgt1", "tgt2", "tgt2", "tgt1", "tgt2"),
   v_call = "V", d_call = "", j_call = "J", c_call = "C")
 callClones(contigs, cdr3 = "aa", group_cols = "donor")
+
+# Cell-level, e.g. seurat_obj@meta.data <- callClones(seurat_obj@meta.data)
+cells <- data.frame(chain_vj = c("TRA", "TRA|TRA", NA),
+                    junction_aa_vj = c("CAVF", "CAVF|CAGF", NA),
+                    chain_vdj = c("TRB", "TRB", NA),
+                    junction_aa_vdj = c("CASSF", "CASSF", NA),
+                    row.names = c("cell1", "cell2", "cell3"))
+callClones(cells)
 
 }
