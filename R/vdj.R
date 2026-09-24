@@ -24,7 +24,7 @@ setClass("VDJ", slots=list(celltype='character',
 #' Build a VDJ object from a 10x output directory
 #'
 #' Reads the contigs with \code{\link{readVDJ_10X}} and pairs chains per cell
-#' with \code{\link{combineChains}} using \code{handle_multiple = "keep_all"}.
+#' with \code{\link{combineChains}}.
 #'
 #' @param path Path to a 10x \code{vdj_t}/\code{vdj_b} output directory, or to a
 #'   \code{filtered_contig_annotations.csv} file.
@@ -32,6 +32,12 @@ setClass("VDJ", slots=list(celltype='character',
 #' @param species Species name stored on the object.
 #' @param input_origin Source of the data. Only \code{"10x"} is parsed; any
 #'   other value returns an empty object.
+#' @param handle_multiple How to handle cells with more than one contig of a
+#'   chain type: \code{"keep_all"}, \code{"keep_high_umi"},
+#'   \code{"expand_clones"} or \code{"expand_clones_keep_one_clonal"}. See
+#'   \code{\link{combineChains}}.
+#' @param ... Further arguments passed to \code{\link{combineChains}}, e.g.
+#'   \code{tie_break_col} or \code{other_cols}.
 #'
 #' @return A \code{\linkS4class{VDJ}} object with \code{contigs} and
 #'   \code{metadata} filled in.
@@ -40,7 +46,8 @@ setClass("VDJ", slots=list(celltype='character',
 #' @importFrom rlang .data
 #' @importFrom methods new
 #' @export
-VDJ <- function(path, celltype = 'abTCR',species='Homo_sapiens', input_origin = '10x') {
+VDJ <- function(path, celltype = 'abTCR',species='Homo_sapiens', input_origin = '10x',
+                handle_multiple = 'keep_all', ...) {
 
     object <- new("VDJ",
                   celltype=celltype,
@@ -50,7 +57,7 @@ VDJ <- function(path, celltype = 'abTCR',species='Homo_sapiens', input_origin = 
     if(input_origin == '10x'){
         object <- readVDJ_10X(object,
                                path=path)
-        object <- combineChains(object,handle_multiple = 'keep_all')
+        object <- combineChains(object, handle_multiple = handle_multiple, ...)
     }
     return(object)
 }

@@ -4,7 +4,14 @@
 \alias{VDJ}
 \title{Build a VDJ object from a 10x output directory}
 \usage{
-VDJ(path, celltype = "abTCR", species = "Homo_sapiens", input_origin = "10x")
+VDJ(
+  path,
+  celltype = "abTCR",
+  species = "Homo_sapiens",
+  input_origin = "10x",
+  handle_multiple = "keep_all",
+  ...
+)
 }
 \arguments{
 \item{path}{Path to a 10x \code{vdj_t}/\code{vdj_b} output directory, or to a
@@ -16,6 +23,14 @@ VDJ(path, celltype = "abTCR", species = "Homo_sapiens", input_origin = "10x")
 
 \item{input_origin}{Source of the data. Only \code{"10x"} is parsed; any
 other value returns an empty object.}
+
+\item{handle_multiple}{How to handle cells with more than one contig of a
+chain type: \code{"keep_all"}, \code{"keep_high_umi"},
+\code{"expand_clones"} or \code{"expand_clones_keep_one_clonal"}. See
+\code{\link{combineChains}}.}
+
+\item{...}{Further arguments passed to \code{\link{combineChains}}, e.g.
+\code{tie_break_col} or \code{other_cols}.}
 }
 \value{
 A \code{\linkS4class{VDJ}} object with \code{contigs} and
@@ -23,5 +38,5 @@ A \code{\linkS4class{VDJ}} object with \code{contigs} and
 }
 \description{
 Reads the contigs with \code{\link{readVDJ_10X}} and pairs chains per cell
-with \code{\link{combineChains}} using \code{handle_multiple = "keep_all"}.
+with \code{\link{combineChains}}.
 }
